@@ -1,4 +1,4 @@
-idf_component_register(SRCS "panic.c" "system_api.c" "startup.c"
+idf_component_register(SRCS "panic.c" "system_api.c" "startup.c" "sleep_modes.c" "system_time.c"
                     INCLUDE_DIRS include
                     PRIV_REQUIRES spi_flash app_update
                                   # requirements due to startup code
@@ -22,3 +22,8 @@ set_source_files_properties(
     startup.c
     PROPERTIES COMPILE_FLAGS
     -fno-stack-protector)
+
+if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+    set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/sleep_modes.c" PROPERTIES
+                                COMPILE_FLAGS "-fno-jump-tables -fno-tree-switch-conversion")
+endif()

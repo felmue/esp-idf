@@ -30,11 +30,13 @@
 #include "sdkconfig.h"
 
 #if CONFIG_IDF_TARGET_ESP32
+#include "esp32/rtc.h"
 #include "esp32/cache_err_int.h"
 #include "esp32/rom/cache.h"
 #include "esp32/rom/rtc.h"
 #include "esp32/spiram.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rtc.h"
 #include "esp32s2/brownout.h"
 #include "esp32s2/cache_err_int.h"
 #include "esp32s2/rom/cache.h"
@@ -50,9 +52,12 @@
 #include "esp_flash_encrypt.h"
 
 #include "hal/rtc_io_hal.h"
+#include "hal/wdt_hal.h"
 #include "soc/dport_reg.h"
 #include "soc/efuse_reg.h"
 #include "soc/cpu.h"
+#include "soc/rtc.h"
+#include "soc/spinlock.h"
 
 #include "trax.h"
 
@@ -65,6 +70,7 @@
 #endif
 
 #include "esp_private/startup_internal.h"
+#include "esp_private/system_internal.h"
 
 extern int _bss_start;
 extern int _bss_end;
@@ -101,7 +107,6 @@ void startup_resume_other_cores(void)
 {
     s_resume_cores = true;
 }
-
 
 void IRAM_ATTR call_start_cpu1(void)
 {
@@ -277,6 +282,11 @@ void IRAM_ATTR call_start_cpu0(void)
 #if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
     s_cpu_up[0] = true;
 #endif
+#ifdef CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ
+    ESP_EARLY_LOGI(TAG, "cpu freq: %d", CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ);
+#else
+    ESP_EARLY_LOGI(TAG, "cpu freq: %d", CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ);
+#endif
     ESP_EARLY_LOGI(TAG, "Pro cpu up.");
 
 #if SOC_CPU_CORES_NUM > 1 // there is no 'single-core mode' for natively single-core processors
@@ -350,6 +360,11 @@ void IRAM_ATTR call_start_cpu0(void)
 
     esp_clk_init();
     esp_perip_clk_init();
+
+    // Now that the clocks have been set-up, set the startup time from RTC
+    // and default RTC-backed system time provider.
+    g_startup_time = esp_rtc_get_time_us();
+
     intr_matrix_clear();
 
 #ifdef CONFIG_ESP_CONSOLE_UART
@@ -371,10 +386,8 @@ void IRAM_ATTR call_start_cpu0(void)
 #endif
 
     bootloader_flash_update_id();
-#if CONFIG_IDF_TARGET_ESP32
-#if !CONFIG_SPIRAM_BOOT_INIT
     // Read the application binary image header. This will also decrypt the header if the image is encrypted.
-    esp_image_header_t fhdr = {0};
+    __attribute__((unused)) esp_image_header_t fhdr = {0};
 #ifdef CONFIG_APP_BUILD_TYPE_ELF_RAM
     fhdr.spi_mode = ESP_IMAGE_SPI_MODE_DIO;
     fhdr.spi_speed = ESP_IMAGE_SPI_SPEED_40M;
@@ -389,13 +402,24 @@ void IRAM_ATTR call_start_cpu0(void)
     memcpy(&fhdr, (void *) SOC_DROM_LOW, sizeof(fhdr));
 #endif // CONFIG_APP_BUILD_TYPE_ELF_RAM
 
+#if CONFIG_IDF_TARGET_ESP32
+#if !CONFIG_SPIRAM_BOOT_INIT
     // If psram is uninitialized, we need to improve some flash configuration.
     bootloader_flash_clock_config(&fhdr);
     bootloader_flash_gpio_config(&fhdr);
     bootloader_flash_dummy_config(&fhdr);
     bootloader_flash_cs_timing_config();
 #endif //!CONFIG_SPIRAM_BOOT_INIT
-#endif
+#endif //CONFIG_IDF_TARGET_ESP32
+
+#if CONFIG_SPI_FLASH_SIZE_OVERRIDE
+    int app_flash_size = esp_image_get_flash_size(fhdr.spi_size);
+    if (app_flash_size < 1 * 1024 * 1024) {
+        ESP_LOGE(TAG, "Invalid flash size in app image header.");
+        abort();
+    }
+    bootloader_flash_update_size(app_flash_size);
+#endif //CONFIG_SPI_FLASH_SIZE_OVERRIDE
 
 #if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
     s_cpu_inited[0] = true;

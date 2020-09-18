@@ -78,6 +78,8 @@
 #define STRINGIFY(s) STRINGIFY2(s)
 #define STRINGIFY2(s) #s
 
+uint64_t g_startup_time = 0;
+
 // App entry point for core 0
 extern void start_app(void);
 
@@ -106,9 +108,14 @@ sys_startup_fn_t g_startup_fn[1] = { start_cpu0 };
 
 #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
 // workaround for C++ exception crashes
-void _Unwind_SetNoFunctionContextInstall(unsigned char enable);
+void _Unwind_SetNoFunctionContextInstall(unsigned char enable) __attribute__((weak, alias("_Unwind_SetNoFunctionContextInstall_Default")));
 // workaround for C++ exception large memory allocation
 void _Unwind_SetEnableExceptionFdeSorting(unsigned char enable);
+
+static IRAM_ATTR void _Unwind_SetNoFunctionContextInstall_Default(unsigned char enable __attribute__((unused)))
+{
+    (void)0;
+}
 #endif // CONFIG_COMPILER_CXX_EXCEPTIONS
 
 static const char* TAG = "cpu_start";
@@ -183,6 +190,7 @@ static void IRAM_ATTR do_core_init(void)
        fail initializing it properly. */
     heap_caps_init();
     esp_setup_syscall_table();
+    esp_newlib_time_init();
 
     if (g_spiram_ok) {
 #if CONFIG_SPIRAM_BOOT_INIT && (CONFIG_SPIRAM_USE_CAPS_ALLOC || CONFIG_SPIRAM_USE_MALLOC)
@@ -244,9 +252,6 @@ static void IRAM_ATTR do_core_init(void)
     esp_efuse_disable_basic_rom_console();
 #endif
 
-    esp_timer_init();
-    esp_set_time_from_rtc();
-
     // [refactor-todo] move this to secondary init
 #if CONFIG_APPTRACE_ENABLE
     err = esp_apptrace_init();
@@ -301,6 +306,7 @@ static void IRAM_ATTR do_secondary_init(void)
 
 void IRAM_ATTR start_cpu0_default(void)
 {
+
     ESP_EARLY_LOGI(TAG, "Pro cpu start user code");
 
     // Display information about the current running image.
@@ -353,6 +359,8 @@ void IRAM_ATTR start_cpu0_default(void)
 
 IRAM_ATTR ESP_SYSTEM_INIT_FN(init_components0, BIT(0))
 {
+    esp_timer_init();
+
 #if defined(CONFIG_PM_ENABLE) && defined(CONFIG_ESP_CONSOLE_UART)
     /* When DFS is enabled, use REFTICK as UART clock source */
     uart_ll_set_baudrate(UART_LL_GET_HW(CONFIG_ESP_CONSOLE_UART_NUM), UART_SCLK_REF_TICK, CONFIG_ESP_CONSOLE_UART_BAUDRATE);
@@ -362,10 +370,17 @@ IRAM_ATTR ESP_SYSTEM_INIT_FN(init_components0, BIT(0))
     esp_pm_impl_init();
 #ifdef CONFIG_PM_DFS_INIT_AUTO
     int xtal_freq = (int) rtc_clk_xtal_freq_get();
+#ifdef CONFIG_IDF_TARGET_ESP32
     esp_pm_config_esp32_t cfg = {
         .max_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ,
         .min_freq_mhz = xtal_freq,
     };
+#else
+esp_pm_config_esp32s2_t cfg = {
+        .max_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ,
+        .min_freq_mhz = xtal_freq,
+    };
+#endif
     esp_pm_configure(&cfg);
 #endif //CONFIG_PM_DFS_INIT_AUTO
 #endif //CONFIG_PM_ENABLE

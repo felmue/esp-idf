@@ -174,8 +174,8 @@ menu "FreeRTOS"
 
     config FREERTOS_ISR_STACKSIZE
         int "ISR stack size"
-        range 2100 32768 if ESP32_COREDUMP_DATA_FORMAT_ELF
-        default 2100 if ESP32_COREDUMP_DATA_FORMAT_ELF
+        range 2096 32768 if ESP32_COREDUMP_DATA_FORMAT_ELF
+        default 2096 if ESP32_COREDUMP_DATA_FORMAT_ELF
         range 1536 32768
         default 1536
         help
@@ -416,6 +416,13 @@ menu "FreeRTOS"
             If enabled, context of port*_CRITICAL calls (ISR or Non-ISR)
             would be checked to be in compliance with Vanilla FreeRTOS.
             e.g Calling port*_CRITICAL from ISR context would cause assert failure
+
+    config FREERTOS_PLACE_FUNCTIONS_INTO_FLASH
+        bool "Place FreeRTOS functions into Flash"
+        default n
+        help
+            When enabled the selected Non-ISR FreeRTOS functions will be placed into Flash memory instead of IRAM.
+            This saves up to 8KB of IRAM depending on which functions are used.
 
     config FREERTOS_DEBUG_OCDAWARE
         bool

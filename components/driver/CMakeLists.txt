@@ -1,6 +1,6 @@
 set(srcs
     "adc_common.c"
-    "dac.c"
+    "dac_common.c"
     "gpio.c"
     "i2c.c"
     "i2s.c"
@@ -32,7 +32,8 @@ if(IDF_TARGET STREQUAL "esp32")
                      "sdmmc_host.c"
                      "sdmmc_transaction.c"
                      "esp32/touch_sensor.c"
-                     "esp32/adc.c")
+                     "esp32/adc.c"
+                     "esp32/dac.c")
     list(APPEND includes "esp32/include")
 endif()
 
@@ -42,8 +43,7 @@ if(IDF_TARGET STREQUAL "esp32s2")
                      "esp32s2/adc.c"
                      "esp32s2/adc2_init_cal.c"
                      "spi_slave_hd.c"
-                    )
-    # currently only S2 beta has its own target-specific includes
+                     "esp32s2/dac.c")
     list(APPEND includes "esp32s2/include")
 endif()
 
@@ -51,7 +51,7 @@ idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS ${includes}
                     PRIV_INCLUDE_DIRS "include/driver"
                     PRIV_REQUIRES efuse esp_timer esp_ipc
-                    REQUIRES esp_ringbuf freertos soc) #cannot totally hide soc headers, since there are a lot arguments in the driver are chip-dependent
+                    REQUIRES esp_ringbuf freertos soc hal) # cannot totally hide soc headers, since there are a lot arguments in the driver are chip-dependent
 
 # uses C11 atomic feature
 set_source_files_properties(spi_master.c PROPERTIES COMPILE_FLAGS -std=gnu11)

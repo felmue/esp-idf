@@ -33,6 +33,7 @@ import os.path
 import subprocess
 import sys
 import re
+from packaging import version
 from collections import namedtuple
 
 LANGUAGES = ["en", "zh_CN"]
@@ -45,6 +46,7 @@ SPHINX_KNOWN_WARNINGS = os.path.join(os.environ["IDF_PATH"], "docs", "sphinx-kno
 DXG_WARN_LOG = "doxygen-warning-log.txt"
 DXG_SANITIZED_LOG = "doxygen-warning-log-sanitized.txt"
 DXG_KNOWN_WARNINGS = os.path.join(os.environ["IDF_PATH"], "docs", "doxygen-known-warnings.txt")
+DXG_CI_VERSION = version.parse('1.8.11')
 
 LogMessage = namedtuple("LogMessage", "original_text sanitized_text")
 
@@ -69,9 +71,13 @@ def main():
     # functions and this way makes Python 2 compatibility really tough if there is any code that assumes text files contain strings (kconfiglib assumes this).
     # The reason for that is that you need to import io.open() to support the encoding argument on Python 2, and this function always uses Py2's unicode
     # type not the str type.
-    if 'UTF-8' not in locale.getlocale():
-        raise RuntimeError("build_docs.py requires the default locale's encoding to be UTF-8. " +
-                           "Setting environment variable LC_ALL=C.UTF-8 when running build_docs.py may be enough to fix this.")
+    if ('UTF-8' not in locale.getlocale()) and ('utf8' not in locale.getlocale()):
+        raise RuntimeError("build_docs.py requires the default locale's encoding to be UTF-8.\n" +
+                           " - Linux. Setting environment variable LC_ALL=C.UTF-8 when running build_docs.py may be " +
+                           "enough to fix this.\n"
+                           " - Windows. Possible solution for the Windows 10 starting version 1803. Go to " +
+                           "Control Panel->Clock and Region->Region->Administrative->Change system locale...; " +
+                           "Check `Beta: Use Unicode UTF-8 for worldwide language support` and reboot")
 
     parser = argparse.ArgumentParser(description='build_docs.py: Build IDF docs', prog='build_docs.py')
 
@@ -242,6 +248,17 @@ def action_build(args):
             return ret
 
 
+def check_doxygen_version():
+    # Different version of doxygen may produce different warnings
+    # This could cause a build to fail locally, but pass CI and vice versa
+    process = subprocess.run(['doxygen', '--version'], encoding='utf-8', stdout=subprocess.PIPE)
+    doxygen_ver = process.stdout.strip()
+
+    if version.parse(doxygen_ver) > DXG_CI_VERSION:
+        print('Local doxygen version {} is newer than CI doxygen version {}. Local build may contain '
+              'warnings that will not be raised when built by CI.'.format(doxygen_ver, DXG_CI_VERSION))
+
+
 def call_build_docs(entry):
     (language, target, build_dir, src_dir, sphinx_parallel_jobs, builders, input_docs) = entry
     for buildername in builders:
@@ -260,6 +277,7 @@ def call_build_docs(entry):
                           out_sanitized_log_file=os.path.join(build_dir, SPHINX_SANITIZED_LOG))
 
         if ret != 0:
+            check_doxygen_version()
             return ret
 
     # Build PDF from tex
@@ -400,8 +418,9 @@ def call_linkcheck(entry):
 # https://github.com/espressif/esp-idf/raw/
 GH_LINK_RE = r"https://github.com/espressif/esp-idf/(?:tree|blob|raw)/[^\s]+"
 
-# we allow this one link, because we always want users to see the latest support policy
-GH_LINK_ALLOWED = ["https://github.com/espressif/esp-idf/blob/master/SUPPORT_POLICY.md"]
+# we allow this one doc, because we always want users to see the latest support policy
+GH_LINK_ALLOWED = ["https://github.com/espressif/esp-idf/blob/master/SUPPORT_POLICY.md",
+                   "https://github.com/espressif/esp-idf/blob/master/SUPPORT_POLICY_CN.md"]
 
 
 def action_gh_linkcheck(args):

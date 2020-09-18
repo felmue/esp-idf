@@ -84,16 +84,7 @@
 
 .test_app_template:
   extends: .example_test_template
-  stage: target_test
-  dependencies:
-    - assign_test
   only:
-    refs:
-      - master
-      - /^release\/v/
-      - /^v\d+\.\d+(\.\d+)?($|-)/
-      - triggers
-      - schedules
     variables:
       - $BOT_TRIGGER_WITH_LABEL == null
       - $BOT_LABEL_CUSTOM_TEST
@@ -104,12 +95,33 @@
     LOG_PATH: "$CI_PROJECT_DIR/TEST_LOGS"
     ENV_FILE: "$CI_PROJECT_DIR/ci-test-runner-configs/$CI_RUNNER_DESCRIPTION/EnvConfig.yml"
 
+.component_ut_template:
+  extends:
+    - .before_script_for_component_ut
+    - .example_test_template
+  only:
+    variables:
+      - $BOT_TRIGGER_WITH_LABEL == null
+      - $BOT_LABEL_UNIT_TEST
+  variables:
+    CONFIG_FILE_PATH: "${CI_PROJECT_DIR}/component_ut/test_configs"
+    PYTHON_VER: 3
+  script:
+    - *define_config_file_name
+    # first test if config file exists, if not exist, exit 0
+    - test -e $CONFIG_FILE || exit 0
+    # clone test env configs
+    - ./tools/ci/retry_failed.sh git clone $TEST_ENV_CONFIG_REPOSITORY
+    - python $CHECKOUT_REF_SCRIPT ci-test-runner-configs ci-test-runner-configs
+    - cd tools/ci/python_packages/tiny_test_fw/bin
+    # run test
+    - python Runner.py $COMPONENT_UT_DIRS -c $CONFIG_FILE -e $ENV_FILE
+
 .unit_test_template:
   extends: .example_test_template
   stage: target_test
   dependencies:
     - assign_test
-    - build_esp_idf_tests_cmake_esp32
   only:
     refs:
       - master
@@ -397,9 +409,15 @@ test_app_test_003:
     - ESP32
     - Example_PPP
 
+component_ut_test_001:
+  extends: .component_ut_template
+  tags:
+    - ESP32
+    - COMPONENT_UT_GENERIC
+
 UT_001:
   extends: .unit_test_template
-  parallel: 39
+  parallel: 43
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -408,7 +426,7 @@ UT_001:
 
 UT_002:
   extends: .unit_test_template
-  parallel: 15
+  parallel: 12
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -482,7 +500,7 @@ UT_017:
 
 UT_018:
   extends: .unit_test_template
-  parallel: 5
+  parallel: 2
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -538,6 +556,7 @@ UT_033:
 
 UT_034:
   extends: .unit_test_template
+  parallel: 2
   tags:
     - ESP32_IDF
     - UT_T1_ESP_FLASH
@@ -546,7 +565,6 @@ UT_034:
   extends: .unit_test_template
   dependencies:
     - assign_test
-    - build_esp_idf_tests_cmake_esp32s2
   only:
     refs:
       # Due to lack of runners, the tests are only done by manual trigger
@@ -562,7 +580,7 @@ UT_034:
 
 UT_035:
   extends: .unit_test_s2_template
-  parallel: 38
+  parallel: 41
   tags:
     - ESP32S2_IDF
     - UT_T1_1
@@ -614,7 +632,12 @@ UT_045:
     - ESP32_IDF
     - UT_SDIO
     - psram
-
+    
+UT_046:
+  extends: .unit_test_template
+  tags:
+    - ESP32_IDF
+    - UT_T1_GPIO
 
 nvs_compatible_test:
   extends: .test_template

@@ -46,6 +46,7 @@ suppress_warnings = ['image.nonlocal_uri']
 extensions = ['breathe',
 
               'sphinx.ext.todo',
+              'sphinx_copybutton',
               'sphinx_idf_theme',
               'sphinxcontrib.blockdiag',
               'sphinxcontrib.seqdiag',
@@ -53,6 +54,7 @@ extensions = ['breathe',
               'sphinxcontrib.nwdiag',
               'sphinxcontrib.rackdiag',
               'sphinxcontrib.packetdiag',
+              'sphinxcontrib.cairosvgconverter',
 
               'extensions.html_redirects',
               'extensions.toctree_filter',
@@ -149,6 +151,8 @@ LEGACY_DOCS = ['api-guides/build-system-legacy.rst',
                'api-guides/unit-tests-legacy.rst',
                'get-started-legacy/**']
 
+USB_DOCS = ['api-reference/peripherals/usb.rst']
+
 ESP32_DOCS = ['api-guides/ulp_instruction_set.rst',
               'api-reference/system/himem.rst',
               'api-guides/RF_calibration.rst',
@@ -166,14 +170,16 @@ ESP32S2_DOCS = ['esp32s2.rst',
                 'api-reference/peripherals/hmac.rst',
                 'api-reference/peripherals/ds.rst',
                 'api-reference/peripherals/spi_slave_hd.rst',
-                'api-reference/peripherals/temp_sensor.rst'
-                '']
+                'api-reference/peripherals/temp_sensor.rst',
+                'api-reference/system/async_memcpy.rst',
+                'api-reference/peripherals/usb.rst']
 
 # format: {tag needed to include: documents to included}, tags are parsed from sdkconfig and peripheral_caps.h headers
 conditional_include_dict = {'SOC_BT_SUPPORTED':BT_DOCS,
                             'SOC_SDMMC_HOST_SUPPORTED':SDMMC_DOCS,
                             'SOC_SDIO_SLAVE_SUPPORTED':SDIO_SLAVE_DOCS,
                             'SOC_MCPWM_SUPPORTED':MCPWM_DOCS,
+                            'SOC_USB_SUPPORTED':USB_DOCS,
                             'esp32':ESP32_DOCS,
                             'esp32s2':ESP32S2_DOCS}
 

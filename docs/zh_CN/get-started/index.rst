@@ -141,6 +141,10 @@
 .. _Linux: ../get-started/linux-setup.html
 .. _Mac OS: ../get-started/macos-setup.html
 
+.. note::
+
+    在本文档中，Linux 和 MacOS 操作系统中 ESP-IDF 的默认安装路径为 ``~/esp``；Windows 操作系统的默认路径为 ``%userprofile%\esp``。您也可以将 ESP-IDF 安装在任何其他路径下，但请注意在使用命令行时进行相应替换。注意，ESP-IDF 不支持带有空格的路径。
+
 .. _get-started-get-esp-idf:
 
 
@@ -150,10 +154,6 @@
 在围绕 {IDF_TARGET_NAME} 构建应用程序之前，请先获取乐鑫提供的软件库文件 `ESP-IDF 仓库 <https://github.com/espressif/esp-idf>`_。
 
 获取 ESP-IDF 的本地副本：打开终端，切换到您要保存 ESP-IDF 的工作目录，使用 ``git clone`` 命令克隆远程仓库。针对不同操作系统的详细步骤，请见下文。
-
-.. note::
-
-    在本文档中，Linux 和 MacOS 操作系统中 ESP-IDF 的默认安装路径为 ``~/esp``；Windows 操作系统的默认路径为 ``%userprofile%\esp``。您也可以将 ESP-IDF 安装在任何其他路径下，但请注意在使用命令行时进行相应替换。注意，ESP-IDF 不支持带有空格的路径。
 
 Linux 和 MacOS 操作系统
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -317,6 +317,7 @@ Linux 和 MacOS 操作系统
 .. code-block:: bash
 
     cd ~/esp/hello_world
+    idf.py set-target {IDF_TARGET_PATH_NAME}
     idf.py menuconfig
 
 Windows 操作系统
@@ -325,9 +326,10 @@ Windows 操作系统
 .. code-block:: batch
 
     cd %userprofile%\esp\hello_world
+    idf.py set-target {IDF_TARGET_PATH_NAME}
     idf.py menuconfig
 
-打开一个新项目后，应首先设置“目标”芯片 ``idf.py set-target {IDF_TARGET}``。注意，此操作将清除并初始化项目之前的编译和配置（如有）。 您也可以直接将“目标”配置为环境变量（此时可跳过该步骤）。更多信息，请见 :ref:`selecting-idf-target`。
+打开一个新项目后，应首先设置“目标”芯片 ``idf.py set-target {IDF_TARGET_PATH_NAME}``。注意，此操作将清除并初始化项目之前的编译和配置（如有）。 您也可以直接将“目标”配置为环境变量（此时可跳过该步骤）。更多信息，请见 :ref:`selecting-idf-target`。
 
 如果之前的步骤都正确，则会显示下面的菜单：
 
@@ -393,7 +395,7 @@ Windows 操作系统
 第九步：烧录到设备
 =============================
 
-请使用以下命令，将刚刚生成的二进制文件烧录至您的 {IDF_TARGET_NAME} 开发板：
+请使用以下命令，将刚刚生成的二进制文件烧录 (bootloader.bin, partition-table.bin 和 hello-world.bin)  至您的 {IDF_TARGET_NAME} 开发板：
 
     ``idf.py -p PORT [-b BAUD] flash``
 
@@ -529,6 +531,7 @@ Windows 操作系统
 
     establish-serial-connection
     eclipse-setup
+    vscode-setup
     ../api-guides/tools/idf-monitor
     toolchain-setup-scratch
     :esp32: ../get-started-legacy/index

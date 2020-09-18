@@ -113,8 +113,9 @@ Here is a list of some useful options:
 - ``-B <dir>`` allows overriding the build directory from the default ``build`` subdirectory of the project directory.
 - ``--ccache`` flag can be used to enable CCache_ when compiling source files, if the CCache_ tool is installed. This can dramatically reduce some build times.
 
-Note that some older versions of CCache may exhibit bugs on some platforms, so if files are not rebuilt as expected then try disabling ccache and build again. CCache can be enabled by default by setting the ``IDF_ENABLE_CCACHE`` environment variable to a non-zero value.
+Note that some older versions of CCache may exhibit bugs on some platforms, so if files are not rebuilt as expected then try disabling ccache and build again. CCache can be enabled by default by setting the ``IDF_CCACHE_ENABLE`` environment variable to a non-zero value.
 - ``-v`` flag causes both ``idf.py`` and the build system to produce verbose build output. This can be useful for debugging build problems.
+- ``--cmake-warn-uninitialized`` (or ``-w``) will cause CMake to print uninitialized variable warnings inside the project directory (not for directories not found inside the project directory). This only controls CMake variable warnings inside CMake itself, not other types of build warnings. This option can also be set permanently by setting the ``IDF_CMAKE_WARN_UNINITIALIZED`` environment variable to a non-zero value.
 
 Using CMake Directly
 --------------------
@@ -831,6 +832,24 @@ To embed a file into a project, rather than a component, you can call the functi
 Place this line after the ``project()`` line in your project CMakeLists.txt file. Replace ``myproject.elf`` with your project name. The final argument can be ``TEXT`` to embed a null-terminated string, or ``BINARY`` to embed the content as-is.
 
 For an example of using this technique, see :example:`protocols/https_request` - the certificate file contents are loaded from the text .pem file at compile time.
+
+
+.. highlight:: cmake
+
+It is also possible embed a generated file::
+
+  add_custom_command(OUTPUT my_processed_file.bin
+                    COMMAND my_process_file_cmd my_unprocessed_file.bin)
+  target_add_binary_data(my_target "my_processed_file.bin" BINARY)
+
+In the example above, ``my_processed_file.bin`` is generated from ``my_unprocessed_file.bin`` through some command ``my_process_file_cmd``, then embedded into the target.
+
+To specify a dependence on a target, use the ``DEPENDS`` argument::
+
+  add_custom_target(my_process COMMAND ...)
+  target_add_binary_data(my_target "my_embed_file.bin" BINARY DEPENDS my_process)
+
+The ``DEPENDS`` argument to ``target_add_binary_data`` ensures that the target executes first.
 
 Code and Data Placements
 ------------------------

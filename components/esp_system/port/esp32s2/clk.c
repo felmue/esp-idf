@@ -233,7 +233,6 @@ void esp_perip_clk_init(void)
 #if CONFIG_ESP_CONSOLE_UART_NUM != 1
                            DPORT_UART1_CLK_EN |
 #endif
-                           DPORT_USB_CLK_EN |
                            DPORT_SPI2_CLK_EN |
                            DPORT_I2C_EXT0_CLK_EN |
                            DPORT_UHCI0_CLK_EN |
@@ -242,7 +241,6 @@ void esp_perip_clk_init(void)
                            DPORT_LEDC_CLK_EN |
                            DPORT_TIMERGROUP1_CLK_EN |
                            DPORT_SPI3_CLK_EN |
-                           DPORT_SPI4_CLK_EN |
                            DPORT_PWM0_CLK_EN |
                            DPORT_TWAI_CLK_EN |
                            DPORT_PWM1_CLK_EN |
@@ -281,7 +279,6 @@ void esp_perip_clk_init(void)
                         DPORT_RMT_CLK_EN |
                         DPORT_UHCI1_CLK_EN |
                         DPORT_SPI3_CLK_EN |
-                        DPORT_SPI4_CLK_EN |
                         DPORT_I2C_EXT1_CLK_EN |
                         DPORT_I2S1_CLK_EN |
                         DPORT_SPI2_DMA_CLK_EN |
