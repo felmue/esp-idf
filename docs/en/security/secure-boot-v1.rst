@@ -19,7 +19,7 @@ Background
 
 - Most data is stored in flash. Flash access does not need to be protected from physical access in order for secure boot to function, because critical data is stored (non-software-accessible) in Efuses internal to the chip.
 
-- Efuses are used to store the secure bootloader key (in efuse BLOCK2), and also a single Efuse bit (ABS_DONE_0) is burned (written to 1) to permanently enable secure boot on the chip.  For more details about efuse, see Chapter 11 "eFuse Controller" in the Technical Reference Manual.
+- Efuses are used to store the secure bootloader key (in efuse BLOCK2), and also a single Efuse bit (ABS_DONE_0) is burned (written to 1) to permanently enable secure boot on the chip.  For more details on eFuses, see *{IDF_TARGET_NAME} Technical Reference Manual* > *eFuse Controller (eFuse)* [`PDF <{IDF_TARGET_TRM_EN_URL}#efuse>`__].
 
 - To understand the secure boot process, first familiarise yourself with the standard :doc:`ESP-IDF boot process <../api-guides/general-notes>`.
 
@@ -58,11 +58,7 @@ The following keys are used by the secure boot process:
 
   .. only:: esp32
 
-    See ESP32 Technical Reference Manual section 20.3.1.3 *System Parameter coding_scheme* for more details.
-
-  .. only:: esp32s2
-
-    See ESP32-S2 Technical Reference Manual for more details.
+    For more details, see *{IDF_TARGET_NAME} Technical Reference Manual* > *eFuse Controller (eFuse)* > *System Parameter coding_scheme* [`PDF <{IDF_TARGET_TRM_EN_URL}#efuse>`__].
 
   The algorithm operates on a 256 bit key in all cases, 192 bit keys are extended by repeating some bits (:ref:`details<secure-bootloader-digest-algorithm>`).
 
@@ -144,7 +140,7 @@ To enable a reflashable bootloader:
 
 2. Follow the steps shown above to choose a signing key file, and generate the key file.
 
-3. Run ``idf.py bootloader``. A binary key file will be created, derived from the private key that is used for signing. Two sets of flashing steps will be printed - the first set of steps includes an ``espefuse.py burn_key`` command which is used to write the bootloader key to efuse. (Flashing this key is a one-time-only process.) The second set of steps can be used to reflash the bootloader with a pre-calculated digest (generated during the build process).
+3. Run ``idf.py bootloader``. A binary key file will be created, derived from the private key that is used for signing. Two sets of flashing steps will be printed - the first set of steps includes an ``espefuse.py burn_key secure_boot_v1 path_to/secure-bootloader-key-xxx.bin`` command which is used to write the bootloader key to efuse. (Flashing this key is a one-time-only process.) The second set of steps can be used to reflash the bootloader with a pre-calculated digest (generated during the build process).
 
 4. Resume from :ref:`Step 6 of the one-time flashing process <secure-boot-resume-normal-flashing>`, to flash the bootloader and enable secure boot. Watch the console log output closely to ensure there were no errors in the secure boot configuration.
 

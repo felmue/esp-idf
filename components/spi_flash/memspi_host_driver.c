@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "soc/soc_caps.h"
 #include "spi_flash_defs.h"
 #include "memspi_host_driver.h"
 #include "string.h"
@@ -19,13 +20,13 @@
 #include "cache_utils.h"
 #include "esp_flash_partitions.h"
 
+
 #define SPI_FLASH_HAL_MAX_WRITE_BYTES 64
 #define SPI_FLASH_HAL_MAX_READ_BYTES 64
 
-static const char TAG[] = "memspi";
 DRAM_ATTR static const spi_flash_host_driver_t esp_flash_default_host = ESP_FLASH_DEFAULT_HOST_DRIVER();
 
-#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
+#if SOC_MEMSPI_IS_INDEPENDENT
 extern void spi_flash_hal_gpspi_poll_cmd_done(spi_flash_host_inst_t *host);
 extern esp_err_t spi_flash_hal_gpspi_device_config(spi_flash_host_inst_t *host);
 esp_err_t spi_flash_hal_gpspi_configure_host_io_mode(
@@ -36,7 +37,7 @@ esp_err_t spi_flash_hal_gpspi_configure_host_io_mode(
     esp_flash_io_mode_t io_mode);
 extern esp_err_t spi_flash_hal_gpspi_common_command(spi_flash_host_inst_t *host, spi_flash_trans_t *trans);
 extern esp_err_t spi_flash_hal_gpspi_read(spi_flash_host_inst_t *host, void *buffer, uint32_t address, uint32_t read_len);
-extern bool spi_flash_hal_gpspi_host_idle(spi_flash_host_inst_t *host);
+extern uint32_t spi_flash_hal_gpspi_check_status(spi_flash_host_inst_t *host);
 extern bool spi_flash_hal_gpspi_supports_direct_write(spi_flash_host_inst_t *host, const void *p);
 extern bool spi_flash_hal_gpspi_supports_direct_read(spi_flash_host_inst_t *host, const void *p);
 
@@ -56,28 +57,34 @@ static const spi_flash_host_driver_t esp_flash_gpspi_host = {
         .write_data_slicer = memspi_host_write_data_slicer,
         .read = spi_flash_hal_gpspi_read,
         .read_data_slicer = memspi_host_read_data_slicer,
-        .host_idle = spi_flash_hal_gpspi_host_idle,
+        .host_status = spi_flash_hal_gpspi_check_status,
         .configure_host_io_mode = spi_flash_hal_gpspi_configure_host_io_mode,
         .poll_cmd_done = spi_flash_hal_gpspi_poll_cmd_done,
         .flush_cache = NULL,
+        .resume = spi_flash_hal_resume,
+        .suspend = spi_flash_hal_suspend,
 };
 #endif
 
 esp_err_t memspi_host_init_pointers(memspi_host_inst_t *host, const memspi_host_config_t *cfg)
 {
-#ifdef CONFIG_IDF_TARGET_ESP32
-    host->inst.driver = &esp_flash_default_host;
-#elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
+#if SOC_MEMSPI_IS_INDEPENDENT
     if (cfg->host_id == SPI_HOST)
         host->inst.driver = &esp_flash_default_host;
     else {
         host->inst.driver = &esp_flash_gpspi_host;
     }
+#else
+    host->inst.driver = &esp_flash_default_host;
 #endif
 
     esp_err_t err = spi_flash_hal_init(host, cfg);
     return err;
 }
+
+#ifndef CONFIG_SPI_FLASH_ROM_IMPL
+
+static const char TAG[] = "memspi";
 
 esp_err_t memspi_host_read_id_hs(spi_flash_host_inst_t *host, uint32_t *id)
 {
@@ -135,8 +142,10 @@ void memspi_host_erase_chip(spi_flash_host_inst_t *host)
     host->driver->common_command(host, &t);
 }
 
+// Only support 24bit address
 void memspi_host_erase_sector(spi_flash_host_inst_t *host, uint32_t start_address)
 {
+    assert(start_address < 0x1000000);
     spi_flash_trans_t t = {
         .command = CMD_SECTOR_ERASE,
         .address_bitlen = 24,
@@ -145,8 +154,10 @@ void memspi_host_erase_sector(spi_flash_host_inst_t *host, uint32_t start_addres
     host->driver->common_command(host, &t);
 }
 
+// Only support 24bit address
 void memspi_host_erase_block(spi_flash_host_inst_t *host, uint32_t start_address)
 {
+    assert(start_address < 0x1000000);
     spi_flash_trans_t t = {
         .command = CMD_LARGE_BLOCK_ERASE,
         .address_bitlen = 24,
@@ -155,8 +166,10 @@ void memspi_host_erase_block(spi_flash_host_inst_t *host, uint32_t start_address
     host->driver->common_command(host, &t);
 }
 
+// Only support 24bit address
 void memspi_host_program_page(spi_flash_host_inst_t *host, const void *buffer, uint32_t address, uint32_t length)
 {
+    assert(address + length <= 0x1000000);
     spi_flash_trans_t t = {
         .command = CMD_PROGRAM_PAGE,
         .address_bitlen = 24,
@@ -209,3 +222,4 @@ int memspi_host_read_data_slicer(spi_flash_host_inst_t *host, uint32_t address, 
     return MIN(max_len, len);
 }
 
+#endif // CONFIG_SPI_FLASH_ROM_IMPL

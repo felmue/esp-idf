@@ -12,10 +12,12 @@
 #include "esp32s2/memprot.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/memprot.h"
+#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/memprot.h"
 #endif
 
 
-#define SHUTDOWN_HANDLERS_NO 2
+#define SHUTDOWN_HANDLERS_NO 4
 static shutdown_handler_t shutdown_handlers[SHUTDOWN_HANDLERS_NO];
 
 esp_err_t esp_register_shutdown_handler(shutdown_handler_t handler)
@@ -73,11 +75,15 @@ void IRAM_ATTR esp_restart(void)
     // Disable scheduler on this core.
     vTaskSuspendAll();
 
-#if CONFIG_IDF_TARGET_ESP32S2
+    bool digital_reset_needed = false;
+#if CONFIG_ESP_SYSTEM_CONFIG_MEMPROT_FEATURE
     if (esp_memprot_is_intr_ena_any() || esp_memprot_is_locked_any()) {
-        esp_restart_noos_dig();
+        digital_reset_needed = true;
     }
 #endif
+    if (digital_reset_needed) {
+        esp_restart_noos_dig();
+    }
     esp_restart_noos();
 }
 

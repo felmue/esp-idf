@@ -31,10 +31,13 @@
         .write_data_slicer = memspi_host_write_data_slicer, \
         .read = spi_flash_hal_read, \
         .read_data_slicer = memspi_host_read_data_slicer, \
-        .host_idle = spi_flash_hal_host_idle, \
+        .host_status = spi_flash_hal_check_status, \
         .configure_host_io_mode = spi_flash_hal_configure_host_io_mode, \
         .poll_cmd_done = spi_flash_hal_poll_cmd_done, \
         .flush_cache = memspi_host_flush_cache, \
+        .resume = spi_flash_hal_resume, \
+        .suspend = spi_flash_hal_suspend,\
+        .sus_setup = spi_flash_hal_setup_read_suspend,\
 }
 
 /// configuration for the memspi host
@@ -107,7 +110,7 @@ esp_err_t memspi_host_flush_cache(spi_flash_host_inst_t *host, uint32_t addr, ui
 void memspi_host_erase_chip(spi_flash_host_inst_t *host);
 
 /**
- *  Erase a sector starting from a given address.
+ *  Erase a sector starting from a given address. For 24bit address only.
  *
  * @param host The driver context.
  * @param start_address Starting address of the sector.
@@ -115,7 +118,7 @@ void memspi_host_erase_chip(spi_flash_host_inst_t *host);
 void memspi_host_erase_sector(spi_flash_host_inst_t *host, uint32_t start_address);
 
 /**
- *  Erase a block starting from a given address.
+ *  Erase a block starting from a given address. For 24bit address only.
  *
  * @param host The driver context.
  * @param start_address Starting address of the block.
@@ -123,7 +126,7 @@ void memspi_host_erase_sector(spi_flash_host_inst_t *host, uint32_t start_addres
 void memspi_host_erase_block(spi_flash_host_inst_t *host, uint32_t start_address);
 
 /**
- * Program a page with contents of a buffer.
+ * Program a page with contents of a buffer. For 24bit address only.
  *
  * @param host The driver context.
  * @param buffer Buffer which contains the data to be flashed.

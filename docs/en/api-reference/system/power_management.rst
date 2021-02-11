@@ -93,7 +93,7 @@ The following peripherals work normally even when the APB frequency is changing:
 
 - **UART**: if REF_TICK is used as a clock source. See `use_ref_tick` member of :cpp:class:`uart_config_t`.
 - **LEDC**: if REF_TICK is used as a clock source. See :cpp:func:`ledc_timer_config` function.
-- **RMT**: if REF_TICK is used as a clock source. See `flags` member of :cpp:class:`rmt_config_t` and macro `RMT_CHANNEL_FLAGS_ALWAYS_ON`.
+- **RMT**: if REF_TICK or XTAL is used as a clock source. See `flags` member of :cpp:class:`rmt_config_t` and macro `RMT_CHANNEL_FLAGS_AWARE_DFS`.
 
 Currently, the following peripheral drivers are aware of DFS and will use the ``ESP_PM_APB_FREQ_MAX`` lock for the duration of the transaction:
 
@@ -110,7 +110,8 @@ The following drivers will hold the ``ESP_PM_APB_FREQ_MAX`` lock while the drive
     - **Ethernet**: between calls to :cpp:func:`esp_eth_driver_install` and :cpp:func:`esp_eth_driver_uninstall`.
     - **WiFi**: between calls to :cpp:func:`esp_wifi_start` and :cpp:func:`esp_wifi_stop`. If modem sleep is enabled, the lock will be released for the periods of time when radio is disabled.
     - **TWAI**: between calls to :cpp:func:`twai_driver_install` and :cpp:func:`twai_driver_uninstall`.
-    :SOC_BT_SUPPORTED: - **Bluetooth**: between calls to :cpp:func:`esp_bt_controller_enable` and :cpp:func:`esp_bt_controller_disable`. If Bluetooth modem sleep is enabled, the ``ESP_PM_APB_FREQ_MAX`` lock will be released for the periods of time when radio is disabled. However the ``ESP_PM_NO_LIGHT_SLEEP`` lock will still be held, unless :ref:`CONFIG_BTDM_LOW_POWER_CLOCK` option is set to "External 32kHz crystal".
+    :SOC_BT_SUPPORTED and esp32: - **Bluetooth**: between calls to :cpp:func:`esp_bt_controller_enable` and :cpp:func:`esp_bt_controller_disable`. If Bluetooth modem sleep is enabled, the ``ESP_PM_APB_FREQ_MAX`` lock will be released for the periods of time when radio is disabled. However the ``ESP_PM_NO_LIGHT_SLEEP`` lock will still be held, unless :ref:`CONFIG_BTDM_CTRL_LOW_POWER_CLOCK` option is set to "External 32kHz crystal".
+    :SOC_BT_SUPPORTED and esp32c3: - **Bluetooth**: between calls to :cpp:func:`esp_bt_controller_enable` and :cpp:func:`esp_bt_controller_disable`. If Bluetooth modem sleep is enabled, the ``ESP_PM_APB_FREQ_MAX`` lock will be released for the periods of time when radio is disabled. However the ``ESP_PM_NO_LIGHT_SLEEP`` lock will still be held.
 
 The following peripheral drivers are not aware of DFS yet. Applications need to acquire/release locks themselves, when necessary:
 

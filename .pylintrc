@@ -144,6 +144,9 @@ disable=print-statement,
         missing-module-docstring,
         wrong-import-order,
         invalid-name,
+        too-few-public-methods,
+        too-many-locals,
+        bad-super-call,  # since we still haven't drop python2 support
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -502,7 +505,7 @@ variable-naming-style=snake_case
 max-args=5
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=12
 
 # Maximum number of boolean expressions in an if statement (see R0916).
 max-bool-expr=5

@@ -13,24 +13,40 @@
 // limitations under the License.
 #include "sdkconfig.h"
 #include "soc/soc.h"
-#include "soc/system_reg.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "esp_log.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_uart.h"
+#include "esp_attr.h"
+
+static const char *TAG = "fpga";
 
 extern void ets_update_cpu_frequency(uint32_t ticks_per_us);
 
-void bootloader_clock_configure(void)
+static void s_warn(void)
 {
-    esp_rom_uart_tx_wait_idle(0);
-
-    uint32_t clock = 40000000;
-    ets_update_cpu_frequency(clock / 1000000);
-    REG_WRITE(RTC_CNTL_STORE5_REG, (clock >> 12) | ((clock >> 12) << 16));
+    ESP_EARLY_LOGW(TAG, "Project configuration is for internal FPGA use, not all functions will work");
 }
 
-void bootloader_fill_random(void *buffer, size_t length)
+void bootloader_clock_configure(void)
+{
+    s_warn();
+    esp_rom_uart_tx_wait_idle(0);
+
+    uint32_t xtal_freq_mhz = 40;
+#ifdef CONFIG_IDF_TARGET_ESP32S2
+    uint32_t apb_freq_hz = 20000000;
+#else
+    uint32_t apb_freq_hz = 40000000;
+#endif // CONFIG_IDF_TARGET_ESP32S2
+    ets_update_cpu_frequency(apb_freq_hz / 1000000);
+    REG_WRITE(RTC_CNTL_STORE5_REG, (apb_freq_hz >> 12) | ((apb_freq_hz >> 12) << 16));
+    REG_WRITE(RTC_CNTL_STORE4_REG, (xtal_freq_mhz) | ((xtal_freq_mhz) << 16));
+}
+
+/* Placed in IRAM since test_apps expects it to be */
+void IRAM_ATTR bootloader_fill_random(void *buffer, size_t length)
 {
     uint8_t *buffer_bytes = (uint8_t *)buffer;
     for (int i = 0; i < length; i++) {
@@ -40,7 +56,7 @@ void bootloader_fill_random(void *buffer, size_t length)
 
 void esp_clk_init(void)
 {
-
+    s_warn();
 }
 
 void esp_perip_clk_init(void)

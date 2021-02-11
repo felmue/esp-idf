@@ -74,6 +74,22 @@ extern "C" {
 #define ESP_TLS_ERR_SSL_WANT_WRITE                         WOLFSSL_ERROR_WANT_WRITE
 #define ESP_TLS_ERR_SSL_TIMEOUT                            WOLFSSL_CBIO_ERR_TIMEOUT
 #endif /*CONFIG_ESP_TLS_USING_WOLFSSL */
+
+/**
+* Definition of different types/sources of error codes reported
+* from different components
+*/
+typedef enum {
+    ESP_TLS_ERR_TYPE_UNKNOWN = 0,
+    ESP_TLS_ERR_TYPE_SYSTEM,                /*!< System error -- errno */
+    ESP_TLS_ERR_TYPE_MBEDTLS,               /*!< Error code from mbedTLS library */
+    ESP_TLS_ERR_TYPE_MBEDTLS_CERT_FLAGS,    /*!< Certificate flags defined in mbedTLS */
+    ESP_TLS_ERR_TYPE_ESP,                   /*!< ESP-IDF error type -- esp_err_t  */
+    ESP_TLS_ERR_TYPE_WOLFSSL,               /*!< Error code from wolfSSL library */
+    ESP_TLS_ERR_TYPE_WOLFSSL_CERT_FLAGS,    /*!< Certificate flags defined in wolfSSL */
+    ESP_TLS_ERR_TYPE_MAX,                   /*!< Last err type -- invalid entry */
+} esp_tls_error_type_t;
+
 typedef struct esp_tls_last_error* esp_tls_error_handle_t;
 
 /**
@@ -109,6 +125,16 @@ typedef struct psk_key_hint {
     const size_t   key_size;                /*!< length of the key */
     const char* hint;                       /*!< hint in PSK authentication mode in string format */
 } psk_hint_key_t;
+
+/**
+*  @brief Keep alive parameters structure
+*/
+typedef struct tls_keep_alive_cfg {
+    bool keep_alive_enable;               /*!< Enable keep-alive timeout */
+    int keep_alive_idle;                  /*!< Keep-alive idle time (second) */
+    int keep_alive_interval;              /*!< Keep-alive interval time (second) */
+    int keep_alive_count;                 /*!< Keep-alive packet retry send count */
+} tls_keep_alive_cfg_t;
 
 /**
  * @brief      ESP-TLS configuration parameters
@@ -196,6 +222,8 @@ typedef struct esp_tls_cfg {
                                                  If NULL, server certificate CN must match hostname. */
 
     bool skip_common_name;                  /*!< Skip any validation of server certificate CN field */
+
+    tls_keep_alive_cfg_t *keep_alive_cfg;   /*!< Enable TCP keep-alive timeout for SSL connection */
 
     const psk_hint_key_t* psk_hint_key;     /*!< Pointer to PSK hint and key. if not NULL (and certificates are NULL)
                                                  then PSK authentication is enabled with configured setup.
@@ -573,6 +601,20 @@ void esp_tls_free_global_ca_store(void);
  *            - specific error code (based on ESP_ERR_ESP_TLS_BASE) otherwise
  */
 esp_err_t esp_tls_get_and_clear_last_error(esp_tls_error_handle_t h, int *esp_tls_code, int *esp_tls_flags);
+
+/**
+ * @brief      Returns the last error captured in esp_tls of a specific type
+ *             The error information is cleared internally upon return
+ *
+ * @param[in]  h              esp-tls error handle.
+ * @param[in]  err_type       specific error type
+ * @param[out] error_code     last error code returned from mbedtls api (set to zero if none)
+ *                            This pointer could be NULL if caller does not care about esp_tls_code
+ * @return
+ *            - ESP_ERR_INVALID_STATE if invalid parameters
+ *            - ESP_OK if a valid error returned and was cleared
+ */
+esp_err_t esp_tls_get_and_clear_error_type(esp_tls_error_handle_t h, esp_tls_error_type_t err_type, int *error_code);
 
 #if CONFIG_ESP_TLS_USING_MBEDTLS
 /**

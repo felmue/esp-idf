@@ -16,21 +16,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "sdkconfig.h"
-#include "esp_log.h"
+
+#include "esp_private/system_internal.h"
+#include "driver/rtc_cntl.h"
+
+#include "esp_rom_sys.h"
+
 #include "soc/soc.h"
 #include "soc/cpu.h"
 #include "soc/rtc_periph.h"
+#include "hal/cpu_hal.h"
+
 #include "hal/brownout_hal.h"
-#include "esp_private/system_internal.h"
-#include "driver/rtc_cntl.h"
-#include "freertos/FreeRTOS.h"
-#include "esp_rom_sys.h"
+
+#include "sdkconfig.h"
 
 #if defined(CONFIG_ESP32_BROWNOUT_DET_LVL)
 #define BROWNOUT_DET_LVL CONFIG_ESP32_BROWNOUT_DET_LVL
 #elif defined(CONFIG_ESP32S2_BROWNOUT_DET_LVL)
 #define BROWNOUT_DET_LVL CONFIG_ESP32S2_BROWNOUT_DET_LVL
+#elif defined(CONFIG_ESP32S3_BROWNOUT_DET_LVL)
+#define BROWNOUT_DET_LVL CONFIG_ESP32S3_BROWNOUT_DET_LVL
+#elif defined(CONFIG_ESP32C3_BROWNOUT_DET_LVL)
+#define BROWNOUT_DET_LVL CONFIG_ESP32C3_BROWNOUT_DET_LVL
 #else
 #define BROWNOUT_DET_LVL 0
 #endif
@@ -41,7 +49,7 @@
 #define BROWNOUT_RESET_EN false
 #endif // SOC_BROWNOUT_RESET_SUPPORTED
 
-
+#ifndef SOC_BROWNOUT_RESET_SUPPORTED
 static void rtc_brownout_isr_handler(void *arg)
 {
     /* Normally RTC ISR clears the interrupt flag after the application-supplied
@@ -52,11 +60,12 @@ static void rtc_brownout_isr_handler(void *arg)
     /* Stall the other CPU to make sure the code running there doesn't use UART
      * at the same time as the following esp_rom_printf.
      */
-    esp_cpu_stall(!xPortGetCoreID());
+    esp_cpu_stall(!cpu_hal_get_core_id());
     esp_reset_reason_set_hint(ESP_RST_BROWNOUT);
     esp_rom_printf("\r\nBrownout detector was triggered\r\n\r\n");
     esp_restart_noos();
 }
+#endif // not SOC_BROWNOUT_RESET_SUPPORTED
 
 void esp_brownout_init(void)
 {
@@ -70,7 +79,9 @@ void esp_brownout_init(void)
 
     brownout_hal_config(&cfg);
 
+#ifndef SOC_BROWNOUT_RESET_SUPPORTED
     rtc_isr_register(rtc_brownout_isr_handler, NULL, RTC_CNTL_BROWN_OUT_INT_ENA_M);
 
     brownout_hal_intr_enable(true);
+#endif // not SOC_BROWNOUT_RESET_SUPPORTED
 }

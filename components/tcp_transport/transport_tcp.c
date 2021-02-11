@@ -33,7 +33,7 @@ typedef struct {
     int sock;
 } transport_tcp_t;
 
-static int resolve_dns(const char *host, struct sockaddr_in *ip) 
+static int resolve_dns(const char *host, struct sockaddr_in *ip)
 {
     const struct addrinfo hints = {
         .ai_family = AF_INET,
@@ -50,6 +50,34 @@ static int resolve_dns(const char *host, struct sockaddr_in *ip)
     memcpy(&ip->sin_addr, &((struct sockaddr_in *)(res->ai_addr))->sin_addr, sizeof(ip->sin_addr));
     freeaddrinfo(res);
     return ESP_OK;
+}
+
+static int tcp_enable_keep_alive(int fd, esp_transport_keep_alive_t *keep_alive_cfg)
+{
+    int keep_alive_enable = 1;
+    int keep_alive_idle = keep_alive_cfg->keep_alive_idle;
+    int keep_alive_interval = keep_alive_cfg->keep_alive_interval;
+    int keep_alive_count = keep_alive_cfg->keep_alive_count;
+
+    ESP_LOGD(TAG, "Enable TCP keep alive. idle: %d, interval: %d, count: %d", keep_alive_idle, keep_alive_interval, keep_alive_count);
+    if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive_enable, sizeof(keep_alive_enable)) != 0) {
+        ESP_LOGE(TAG, "Fail to setsockopt SO_KEEPALIVE");
+        return -1;
+    }
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_alive_idle, sizeof(keep_alive_idle)) != 0) {
+        ESP_LOGE(TAG, "Fail to setsockopt TCP_KEEPIDLE");
+        return -1;
+    }
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_alive_interval, sizeof(keep_alive_interval)) != 0) {
+        ESP_LOGE(TAG, "Fail to setsockopt TCP_KEEPINTVL");
+        return -1;
+    }
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_alive_count, sizeof(keep_alive_count)) != 0) {
+        ESP_LOGE(TAG, "Fail to setsockopt TCP_KEEPCNT");
+        return -1;
+    }
+
+    return 0;
 }
 
 static int tcp_connect(esp_transport_handle_t t, const char *host, int port, int timeout_ms)
@@ -81,7 +109,13 @@ static int tcp_connect(esp_transport_handle_t t, const char *host, int port, int
 
     setsockopt(tcp->sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     setsockopt(tcp->sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-
+    // Set socket keep-alive option
+    if (t->keep_alive_cfg && t->keep_alive_cfg->keep_alive_enable) {
+        if (tcp_enable_keep_alive(tcp->sock, t->keep_alive_cfg) < 0) {
+            ESP_LOGE(TAG, "Error to set tcp [socket=%d] keep-alive", tcp->sock);
+            goto error;
+        }
+    }
     // Set socket to non-blocking
     int flags;
     if ((flags = fcntl(tcp->sock, F_GETFL, NULL)) < 0) {
@@ -107,10 +141,12 @@ static int tcp_connect(esp_transport_handle_t t, const char *host, int port, int
             int res = select(tcp->sock+1, NULL, &fdset, NULL, &tv);
             if (res < 0) {
                 ESP_LOGE(TAG, "[sock=%d] select() error: %s", tcp->sock, strerror(errno));
+                esp_transport_capture_errno(t, errno);
                 goto error;
             }
             else if (res == 0) {
                 ESP_LOGE(TAG, "[sock=%d] select() timeout", tcp->sock);
+                esp_transport_capture_errno(t, EINPROGRESS);    // errno=EINPROGRESS indicates connection timeout
                 goto error;
             } else {
                 int sockerr;
@@ -121,6 +157,7 @@ static int tcp_connect(esp_transport_handle_t t, const char *host, int port, int
                     goto error;
                 }
                 else if (sockerr) {
+                    esp_transport_capture_errno(t, sockerr);
                     ESP_LOGE(TAG, "[sock=%d] delayed connect error: %s", tcp->sock, strerror(sockerr));
                     goto error;
                 }
@@ -187,6 +224,7 @@ static int tcp_poll_read(esp_transport_handle_t t, int timeout_ms)
         int sock_errno = 0;
         uint32_t optlen = sizeof(sock_errno);
         getsockopt(tcp->sock, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
+        esp_transport_capture_errno(t, sock_errno);
         ESP_LOGE(TAG, "tcp_poll_read select error %d, errno = %s, fd = %d", sock_errno, strerror(sock_errno), tcp->sock);
         ret = -1;
     }
@@ -210,6 +248,7 @@ static int tcp_poll_write(esp_transport_handle_t t, int timeout_ms)
         int sock_errno = 0;
         uint32_t optlen = sizeof(sock_errno);
         getsockopt(tcp->sock, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
+        esp_transport_capture_errno(t, sock_errno);
         ESP_LOGE(TAG, "tcp_poll_write select error %d, errno = %s, fd = %d", sock_errno, strerror(sock_errno), tcp->sock);
         ret = -1;
     }
@@ -246,11 +285,22 @@ static int tcp_get_socket(esp_transport_handle_t t)
     return -1;
 }
 
+void esp_transport_tcp_set_keep_alive(esp_transport_handle_t t, esp_transport_keep_alive_t *keep_alive_cfg)
+{
+    if (t && keep_alive_cfg) {
+        t->keep_alive_cfg = keep_alive_cfg;
+    }
+}
+
 esp_transport_handle_t esp_transport_tcp_init(void)
 {
     esp_transport_handle_t t = esp_transport_init();
     transport_tcp_t *tcp = calloc(1, sizeof(transport_tcp_t));
-    ESP_TRANSPORT_MEM_CHECK(TAG, tcp, return NULL);
+    ESP_TRANSPORT_MEM_CHECK(TAG, tcp, {
+        esp_transport_destroy(t);
+        return NULL;
+    });
+
     tcp->sock = -1;
     esp_transport_set_func(t, tcp_connect, tcp_read, tcp_write, tcp_close, tcp_poll_read, tcp_poll_write, tcp_destroy);
     esp_transport_set_context_data(t, tcp);

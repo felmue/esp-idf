@@ -249,7 +249,8 @@ is used in assert() statements. */
  * in SMP system.
  *
  * @param pvTaskCode Pointer to the task entry function.  Tasks
- * must be implemented to never return (i.e. continuous loop).
+ * must be implemented to never return (i.e. continuous loop), or should be
+ * terminated using vTaskDelete function.
  *
  * @param pcName A descriptive name for the task.  This is mainly used to
  * facilitate debugging.  Max length defined by configMAX_TASK_NAME_LEN - default
@@ -314,7 +315,8 @@ is used in assert() statements. */
  * xTaskCreateRestricted().
  *
  * @param pvTaskCode Pointer to the task entry function.  Tasks
- * must be implemented to never return (i.e. continuous loop).
+ * must be implemented to never return (i.e. continuous loop), or should be
+ * terminated using vTaskDelete function.
  *
  * @param pcName A descriptive name for the task.  This is mainly used to
  * facilitate debugging.  Max length defined by configMAX_TASK_NAME_LEN - default
@@ -400,7 +402,8 @@ is used in assert() statements. */
  * task affinity in an SMP system.
  *
  * @param pvTaskCode Pointer to the task entry function.  Tasks
- * must be implemented to never return (i.e. continuous loop).
+ * must be implemented to never return (i.e. continuous loop), or should be
+ * terminated using vTaskDelete function.
  *
  * @param pcName A descriptive name for the task.  This is mainly used to
  * facilitate debugging.  The maximum length of the string is defined by
@@ -460,7 +463,8 @@ is used in assert() statements. */
  * using any dynamic memory allocation.
  *
  * @param pvTaskCode Pointer to the task entry function.  Tasks
- * must be implemented to never return (i.e. continuous loop).
+ * must be implemented to never return (i.e. continuous loop), or should be
+ * terminated using vTaskDelete function.
  *
  * @param pcName A descriptive name for the task.  This is mainly used to
  * facilitate debugging.  The maximum length of the string is defined by
@@ -629,7 +633,7 @@ is used in assert() statements. */
 /*
  * xTaskCreateRestrictedStatic() should only be used in systems that include an
  * MPU implementation.
- * 
+ *
  * Only available when configSUPPORT_STATIC_ALLOCATION is set to 1.
  *
  * Internally, within the FreeRTOS implementation, tasks use two blocks of
@@ -702,7 +706,7 @@ is used in assert() statements. */
  *	// and/or timer task.
  *	for( ;; );
  * }
- * @endcode 
+ * @endcode
  * \ingroup Tasks
  */
 #if( ( portUSING_MPU_WRAPPERS == 1 ) && ( configSUPPORT_STATIC_ALLOCATION == 1 ) )
@@ -920,7 +924,7 @@ BaseType_t xTaskAbortDelay( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /**
  * Obtain the priority of any task.
- * 
+ *
  * INCLUDE_uxTaskPriorityGet must be defined as 1 for this function to be available.
  * See the configuration section for more information.
  *
@@ -1036,8 +1040,8 @@ eTaskState eTaskGetState( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 void vTaskGetInfo( TaskHandle_t xTask, TaskStatus_t *pxTaskStatus, BaseType_t xGetFreeStackSpace, eTaskState eState ) PRIVILEGED_FUNCTION;
 
 /**
- * Set the priority of any task. 
- * 
+ * Set the priority of any task.
+ *
  * INCLUDE_vTaskPrioritySet must be defined as 1 for this function to be available.
  * See the configuration section for more information.
  *
@@ -1495,9 +1499,7 @@ configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask ) PRIVIL
  * INCLUDE_pxTaskGetStackStart must be set to 1 in FreeRTOSConfig.h for
  * this function to be available.
  *
- * Returns the highest stack memory address on architectures where the stack grows down
- * from high memory, and the lowest memory address on architectures where the
- * stack grows up from low memory.
+ * Returns the lowest stack memory address, regardless of whether the stack grows up or down.
  *
  * @param xTask Handle of the task associated with the stack returned.
  * Set xTask to NULL to return the stack of the calling task.
@@ -1912,8 +1914,8 @@ uint32_t ulTaskGetIdleRunTimeCounter( void ) PRIVILEGED_FUNCTION;
  * updated.  ulValue is not used and xTaskNotify() always returns pdPASS in
  * this case.
  *
- * @param pulPreviousNotificationValue Can be used to pass out the subject 
- * task's notification value before any bits are modified by the notify 
+ * @param pulPreviousNotificationValue Can be used to pass out the subject
+ * task's notification value before any bits are modified by the notify
  * function.
  *
  * @return Dependent on the value of eAction.  See the description of the
@@ -1995,10 +1997,10 @@ BaseType_t xTaskGenericNotify( TaskHandle_t xTaskToNotify, uint32_t ulValue, eNo
  * The task receives a notification without its notification value being
  * updated.  ulValue is not used and xTaskNotify() always returns pdPASS in
  * this case.
- * 
- * @param pulPreviousNotificationValue Can be used to pass out the subject task's 
+ *
+ * @param pulPreviousNotificationValue Can be used to pass out the subject task's
  * notification value before any bits are modified by the notify function.
- * 
+ *
  * @param pxHigherPriorityTaskWoken  xTaskNotifyFromISR() will set
  * *pxHigherPriorityTaskWoken to pdTRUE if sending the notification caused the
  * task to which the notification was sent to leave the Blocked state, and the
@@ -2263,7 +2265,7 @@ uint32_t ulTaskNotifyTake( BaseType_t xClearCountOnExit, TickType_t xTicksToWait
  *
  * @return pdTRUE if the task's notification state was set to
  * eNotWaitingNotification, otherwise pdFALSE.
- * 
+ *
  * \ingroup TaskNotifications
  */
 BaseType_t xTaskNotifyStateClear( TaskHandle_t xTask );
@@ -2525,7 +2527,7 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
 
 /*
  * This function fills array with TaskSnapshot_t structures for every task in the system.
- * Used by core dump facility to get snapshots of all tasks in the system.
+ * Used by panic handling code to get snapshots of all tasks in the system.
  * Only available when configENABLE_TASK_SNAPSHOT is set to 1.
  * @param pxTaskSnapshotArray Pointer to array of TaskSnapshot_t structures to store tasks snapshot data.
  * @param uxArraySize Size of tasks snapshots array.
@@ -2534,11 +2536,28 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  */
 UBaseType_t uxTaskGetSnapshotAll( TaskSnapshot_t * const pxTaskSnapshotArray, const UBaseType_t uxArraySize, UBaseType_t * const pxTcbSz );
 
+/*
+ * This function iterates over all tasks in the system.
+ * Used by panic handling code to iterate over tasks in the system.
+ * Only available when configENABLE_TASK_SNAPSHOT is set to 1.
+ * @note This function should not be used while FreeRTOS is running (as it doesn't acquire any locks).
+ * @param pxTask task handle.
+ * @return Handle for the next task. If pxTask is NULL, returns hadnle for the first task.
+ */
+TaskHandle_t pxTaskGetNext( TaskHandle_t pxTask );
+
+/*
+ * This function fills TaskSnapshot_t structure for specified task.
+ * Used by panic handling code to get snapshot of a task.
+ * Only available when configENABLE_TASK_SNAPSHOT is set to 1.
+ * @note This function should not be used while FreeRTOS is running (as it doesn't acquire any locks).
+ * @param pxTask task handle.
+ * @param pxTaskSnapshot address of TaskSnapshot_t structure to fill.
+ */
+void vTaskGetSnapshot( TaskHandle_t pxTask, TaskSnapshot_t *pxTaskSnapshot );
+
 /** @endcond */
 #ifdef __cplusplus
 }
 #endif
 #endif /* INC_TASK_H */
-
-
-

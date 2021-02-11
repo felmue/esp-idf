@@ -121,6 +121,7 @@ struct esp_http_client {
     bool                        first_line_prepared;
     int                         header_index;
     bool                        is_async;
+    esp_transport_keep_alive_t  keep_alive_cfg;
 };
 
 typedef struct esp_http_client esp_http_client_t;
@@ -142,6 +143,9 @@ static const char *DEFAULT_HTTP_PATH = "/";
 static const int DEFAULT_MAX_REDIRECT = 10;
 static const int DEFAULT_MAX_AUTH_RETRIES = 10;
 static const int DEFAULT_TIMEOUT_MS = 5000;
+static const int DEFAULT_KEEP_ALIVE_IDLE = 5;
+static const int DEFAULT_KEEP_ALIVE_INTERVAL= 5;
+static const int DEFAULT_KEEP_ALIVE_COUNT= 3;
 
 static const char *HTTP_METHOD_MAPPING[] = {
     "GET",
@@ -532,7 +536,7 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *co
 {
 
     esp_http_client_handle_t client;
-    esp_transport_handle_t tcp;
+    esp_transport_handle_t tcp = NULL;
     char *host_name;
     bool _success;
 
@@ -564,8 +568,15 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *co
         ESP_LOGE(TAG, "Error initialize transport");
         goto error;
     }
+    if (config->keep_alive_enable == true) {
+        client->keep_alive_cfg.keep_alive_enable = true;
+        client->keep_alive_cfg.keep_alive_idle = (config->keep_alive_idle == 0) ? DEFAULT_KEEP_ALIVE_IDLE : config->keep_alive_idle;
+        client->keep_alive_cfg.keep_alive_interval = (config->keep_alive_interval == 0) ? DEFAULT_KEEP_ALIVE_INTERVAL : config->keep_alive_interval;
+        client->keep_alive_cfg.keep_alive_count =  (config->keep_alive_count == 0) ? DEFAULT_KEEP_ALIVE_COUNT : config->keep_alive_count;
+        esp_transport_tcp_set_keep_alive(tcp, &client->keep_alive_cfg);
+    }
 #ifdef CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS
-    esp_transport_handle_t ssl;
+    esp_transport_handle_t ssl = NULL;
     _success = (
                    (ssl = esp_transport_ssl_init()) &&
                    (esp_transport_set_default_port(ssl, DEFAULT_HTTPS_PORT) == ESP_OK) &&
@@ -594,6 +605,10 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *co
     if (config->skip_cert_common_name_check) {
         esp_transport_ssl_skip_common_name_check(ssl);
     }
+
+    if (config->keep_alive_enable == true) {
+        esp_transport_ssl_set_keep_alive(ssl, &client->keep_alive_cfg);
+    }
 #endif
 
     if (_set_config(client, config) != ESP_OK) {
@@ -610,6 +625,8 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *co
         goto error;
     }
 
+    const char *user_agent = config->user_agent == NULL ? DEFAULT_HTTP_USER_AGENT : config->user_agent;
+
     if (config->host != NULL && config->path != NULL) {
         host_name = _get_host_header(client->connection_info.host, client->connection_info.port);
         if (host_name == NULL) {
@@ -617,7 +634,7 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *co
             goto error;
         }
         _success = (
-            (esp_http_client_set_header(client, "User-Agent", DEFAULT_HTTP_USER_AGENT) == ESP_OK) &&
+            (esp_http_client_set_header(client, "User-Agent", user_agent) == ESP_OK) &&
             (esp_http_client_set_header(client, "Host", host_name) == ESP_OK)
         );
         free(host_name);
@@ -637,7 +654,7 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *co
         }
 
         _success = (
-                    (esp_http_client_set_header(client, "User-Agent", DEFAULT_HTTP_USER_AGENT) == ESP_OK) &&
+                    (esp_http_client_set_header(client, "User-Agent", user_agent) == ESP_OK) &&
                     (esp_http_client_set_header(client, "Host", host_name) == ESP_OK)
                 );
 
@@ -721,6 +738,9 @@ esp_err_t esp_http_client_set_redirection(esp_http_client_handle_t client)
 
 static esp_err_t esp_http_check_response(esp_http_client_handle_t client)
 {
+    if (client->response->status_code >= HttpStatus_Ok && client->response->status_code < HttpStatus_MultipleChoices) {
+        return ESP_OK;
+    }
     if (client->redirect_counter >= client->max_redirection_count || client->disable_auto_redirect) {
         ESP_LOGE(TAG, "Error, reach max_redirection_count count=%d", client->redirect_counter);
         return ESP_ERR_HTTP_MAX_REDIRECT;
@@ -823,7 +843,7 @@ esp_err_t esp_http_client_set_url(esp_http_client_handle_t client, const char *u
         } else {
             return ESP_ERR_NO_MEM;
         }
-    } 
+    }
 
     //Reset path and query if there are no information
     if (purl.field_data[UF_PATH].len) {
@@ -1022,6 +1042,7 @@ esp_err_t esp_http_client_perform(esp_http_client_handle_t client)
                 }
                 http_dispatch_event(client, HTTP_EVENT_ON_FINISH, NULL, 0);
 
+                client->response->buffer->raw_len = 0;
                 if (!http_should_keep_alive(client->parser)) {
                     ESP_LOGD(TAG, "Close connection");
                     esp_http_client_close(client);

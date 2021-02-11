@@ -17,7 +17,6 @@
 #include "esp_system.h"
 #include "esp_private/system_internal.h"
 #include "esp_attr.h"
-#include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp32s3/rom/cache.h"
 #include "esp_rom_uart.h"
@@ -55,7 +54,7 @@ void IRAM_ATTR esp_restart_noos(void)
     // CPU must be reset before stalling, in case it was running a s32c1i
     // instruction. This would cause memory pool to be locked by arbiter
     // to the stalled CPU, preventing current CPU from accessing this pool.
-    const uint32_t core_id = xPortGetCoreID();
+    const uint32_t core_id = cpu_hal_get_core_id();
 #if !CONFIG_FREERTOS_UNICORE
     const uint32_t other_core_id = (core_id == 0) ? 1 : 0;
     esp_cpu_reset(other_core_id);
@@ -94,13 +93,20 @@ void IRAM_ATTR esp_restart_noos(void)
                       SYSTEM_BB_RST | SYSTEM_FE_RST | SYSTEM_MAC_RST |
                       SYSTEM_BT_RST | SYSTEM_BTMAC_RST | SYSTEM_SDIO_RST |
                       SYSTEM_SDIO_HOST_RST | SYSTEM_EMAC_RST | SYSTEM_MACPWR_RST |
-                      SYSTEM_RW_BTMAC_RST | SYSTEM_RW_BTLP_RST);
+                      SYSTEM_RW_BTMAC_RST | SYSTEM_RW_BTLP_RST | SYSTEM_BLE_REG_RST | SYSTEM_PWR_REG_RST | SYSTEM_BB_REG_RST);
     REG_WRITE(SYSTEM_CORE_RST_EN_REG, 0);
 
     // Reset timer/spi/uart
     SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN0_REG,
                       SYSTEM_TIMERS_RST | SYSTEM_SPI01_RST | SYSTEM_UART_RST);
     REG_WRITE(SYSTEM_PERIP_RST_EN0_REG, 0);
+
+    // Reset dma
+    SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN1_REG, SYSTEM_DMA_RST);
+    REG_WRITE(SYSTEM_PERIP_RST_EN1_REG, 0);
+
+    SET_PERI_REG_MASK(SYSTEM_EDMA_CTRL_REG, SYSTEM_EDMA_RESET);
+    CLEAR_PERI_REG_MASK(SYSTEM_EDMA_CTRL_REG, SYSTEM_EDMA_RESET);
 
     // Set CPU back to XTAL source, no PLL, same as hard reset
 #if !CONFIG_IDF_ENV_FPGA

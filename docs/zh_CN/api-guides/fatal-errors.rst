@@ -169,7 +169,7 @@ GDB Stub
     This is free software: you are free to change and redistribute it.
     There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
     and "show warranty" for details.
-    This GDB was configured as "--host=x86_64-build_apple-darwin16.3.0 --target=xtensa-{IDF_TARGET_TOOLCHAIN_NAME}-elf".
+    This GDB was configured as "--host=x86_64-build_apple-darwin16.3.0 --target={IDF_TARGET_TOOLCHAIN_PREFIX}".
     Type "show configuration" for configuration details.
     For bug reporting instructions, please see:
     <http://www.gnu.org/software/gdb/bugs/>.
@@ -239,7 +239,10 @@ LoadStoreAlignment
 LoadStoreError
 ^^^^^^^^^^^^^^
 
-应用程序尝试从仅支持 32 位加载/存储的内存区域执行 8 位或 16 位加载/存储操作，例如，解引用一个指向指令内存区域的 ``char*`` 指针就会导致这样的错误。
+这类异常通常发生于以下几种场合:
+
+应用程序尝试从仅支持 32 位加载/存储的内存区域执行 8 位或 16 位加载/存储操作，例如，解引用一个指向指令内存区域(比如 IRAM 或者 IROM)的 char* 指针就会触发这个错误。
+应用程序尝试保存数据到只读的内存区域（比如 IROM 或者 DROM）也会触发这个错误。
 
 Unhandled debug exception
 ^^^^^^^^^^^^^^^^^^^^^^^^^

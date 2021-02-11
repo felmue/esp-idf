@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "hal/systimer_types.h"
 
 /**
@@ -36,10 +37,15 @@ uint64_t systimer_hal_get_counter_value(systimer_counter_id_t counter_id);
  */
 uint64_t systimer_hal_get_time(systimer_counter_id_t counter_id);
 
-/**
- * @brief set alarm time
+/*
+ * @brief set alarm target value (used in one-shot mode)
  */
-void systimer_hal_set_alarm_value(systimer_alarm_id_t alarm_id, uint64_t timestamp);
+void systimer_hal_set_alarm_target(systimer_alarm_id_t alarm_id, uint64_t target);
+
+/**
+ * @brief set alarm period value (used in period mode)
+ */
+void systimer_hal_set_alarm_period(systimer_alarm_id_t alarm_id, uint32_t period);
 
 /**
  * @brief get alarm time
@@ -75,6 +81,11 @@ void systimer_hal_init(void);
  * @brief  connect alarm unit to selected counter
  */
 void systimer_hal_connect_alarm_counter(systimer_alarm_id_t alarm_id, systimer_counter_id_t counter_id);
+
+/**
+ * @brief  set if a counter should be stalled when CPU is halted by the debugger
+ */
+void systimer_hal_counter_can_stall_by_cpu(uint32_t counter_id, uint32_t cpu_id, bool can);
 
 #ifdef __cplusplus
 }

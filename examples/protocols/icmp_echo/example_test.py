@@ -1,5 +1,8 @@
 from __future__ import unicode_literals
+
+import os
 import re
+
 import ttfw_idf
 
 
@@ -11,7 +14,10 @@ def test_examples_icmp_echo(env, extra_data):
 
     dut.expect('example_connect: Connected to')
     dut.expect('esp>')
-    dut.write('ping www.espressif.com')
+
+    ping_dest = os.getenv('EXAMPLE_ICMP_SERVER', 'www.espressif.com')
+    dut.write('ping {}'.format(ping_dest))
+
     ip_re = r'\.'.join((r'\d{1,3}',) * 4)
     ip = dut.expect(re.compile(r'64 bytes from ({}) icmp_seq=1 ttl=\d+ time=\d+ ms'.format(ip_re)))[0]
 
