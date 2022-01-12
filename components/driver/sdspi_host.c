@@ -968,7 +968,8 @@ esp_err_t sdspi_host_init_slot(int slot, const sdspi_slot_config_t* slot_config)
     };
     ret = spi_bus_initialize(host_id, &buscfg,
             slot_config->dma_channel);
-    if (ret != ESP_OK) {
+//  if (ret != ESP_OK) {                // delete by lovyan03
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {  // add by lovyan03
         ESP_LOGE(TAG, "spi_bus_initialize failed with rc=0x%x", ret);
         return ret;
     }
