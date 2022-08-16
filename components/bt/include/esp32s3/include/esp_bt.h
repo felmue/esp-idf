@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 #define ESP_BT_CTRL_CONFIG_MAGIC_VAL    0x5A5AA5A5
-#define ESP_BT_CTRL_CONFIG_VERSION      0x02104270
+#define ESP_BT_CTRL_CONFIG_VERSION      0x02112280
 
 #define ESP_BT_HCI_TL_MAGIC_VALUE   0xfadebead
 #define ESP_BT_HCI_TL_VERSION       0x00010000
@@ -162,7 +162,9 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
     .ble_st_acl_tx_buf_nb = CONFIG_BT_CTRL_BLE_STATIC_ACL_TX_BUF_NB,       \
     .ble_hw_cca_check = CONFIG_BT_CTRL_HW_CCA_EFF,                         \
     .ble_adv_dup_filt_max = CONFIG_BT_CTRL_ADV_DUP_FILT_MAX,               \
+    .coex_param_en = false,                                                \
     .ce_len_type = CONFIG_BT_CTRL_CE_LENGTH_TYPE_EFF,                      \
+    .coex_use_hooks = false,                                               \
     .hci_tl_type = CONFIG_BT_CTRL_HCI_TL_EFF,                              \
     .hci_tl_funcs = NULL,                                                  \
     .txant_dft = CONFIG_BT_CTRL_TX_ANTENNA_INDEX_EFF,                      \
@@ -177,6 +179,7 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
     .hw_target_code = BLE_HW_TARGET_CODE_ESP32S3_CHIP_ECO0,                \
     .slave_ce_len_min = SLAVE_CE_LEN_MIN_DEFAULT,                          \
     .hw_recorrect_en = AGC_RECORRECT_EN,                                   \
+    .cca_thresh = CONFIG_BT_CTRL_HW_CCA_VAL,                               \
 };
 
 #else
@@ -243,6 +246,7 @@ typedef struct {
     uint32_t hw_target_code;                /*!< hardware target */
     uint8_t slave_ce_len_min;               /*!< slave minimum ce length*/
     uint8_t hw_recorrect_en;
+    uint8_t cca_thresh;                     /*!< cca threshold*/
 } esp_bt_controller_config_t;
 
 /**
@@ -332,6 +336,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg);
 
 /**
  * @brief  De-initialize BT controller to free resource and delete task.
+ *         You should stop advertising and scanning, as well as
+ *         disconnect all existing connections before de-initializing BT controller.
  *
  * This function should be called only once, after any other BT functions are called.
  * This function is not whole completed, esp_bt_controller_init cannot called after this function.
